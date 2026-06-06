@@ -23,6 +23,33 @@ require_cmd() {
     command -v "$1" >/dev/null 2>&1 || die "'$1' not found. Please install it first."
 }
 
+# Prefer repo .venv so the script works without manual activation.
+if [ -n "${PYTHON:-}" ]; then
+    :
+elif [ -x "${REPO_ROOT}/.venv/bin/python" ]; then
+    PYTHON="${REPO_ROOT}/.venv/bin/python"
+elif command -v python3 >/dev/null 2>&1; then
+    PYTHON="python3"
+elif command -v python >/dev/null 2>&1; then
+    PYTHON="python"
+else
+    die "Python not found. Create a venv first: python3 -m venv .venv"
+fi
+
+ensure_pip() {
+    if "$PYTHON" -m pip --version >/dev/null 2>&1; then
+        return 0
+    fi
+    info "pip not found for ${PYTHON}; bootstrapping with ensurepip..."
+    "$PYTHON" -m ensurepip --upgrade || \
+        die "pip is not available. Install it with: ${PYTHON} -m ensurepip --upgrade"
+}
+
+pip_install() {
+    ensure_pip
+    "$PYTHON" -m pip install "$@"
+}
+
 download() {
     local url="$1" dest="$2"
     if [ -f "$dest" ]; then
@@ -43,7 +70,7 @@ download() {
 # Check prerequisites
 # ---------------------------------------------------------------------------
 require_cmd git
-require_cmd python
+info "Using Python: ${PYTHON}"
 
 # ---------------------------------------------------------------------------
 # 1. Initialise HaMeR submodule (under third_party/)
@@ -68,7 +95,7 @@ else
 fi
 
 # Verify that the clone is non-empty
-if [ ! -f "${HAMER_DIR}/setup.cfg" ] && [ ! -f "${HAMER_DIR}/pyproject.toml" ]; then
+if [ ! -f "${HAMER_DIR}/setup.py" ] && [ ! -f "${HAMER_DIR}/setup.cfg" ] && [ ! -f "${HAMER_DIR}/pyproject.toml" ]; then
     die "HaMeR directory appears empty. Check submodule setup."
 fi
 
@@ -77,9 +104,19 @@ fi
 # ---------------------------------------------------------------------------
 info "=== [2/5] Installing HaMeR Python package ==="
 
-# Install core hamer package. We skip detectron2/body-detector extras since
-# AnyHand uses WiLoR's YOLO hand detector instead.
-pip install -q -e "${HAMER_DIR}/"
+if ! "$PYTHON" -c "import torch" >/dev/null 2>&1; then
+    die "PyTorch is not installed. Install it first (see README section 1.2): ${PYTHON} -m pip install \"torch<2.6\" \"torchvision<0.21\" --index-url https://download.pytorch.org/whl/cu118"
+fi
+
+# Install core hamer package. Skip detectron2 since AnyHand uses WiLoR's YOLO detector.
+HAMER_CORE_DEPS=(
+    gdown numpy opencv-python pyrender pytorch-lightning scikit-image
+    'smplx==0.1.28' yacs timm einops xtcocotools pandas
+    'chumpy @ git+https://github.com/mattloper/chumpy'
+)
+
+pip_install -q -e "${HAMER_DIR}/" --no-deps
+pip_install -q "${HAMER_CORE_DEPS[@]}"
 info "HaMeR core installed."
 
 # ---------------------------------------------------------------------------
@@ -96,12 +133,12 @@ if [ ! -d "$VITPOSE_DIR" ]; then
 fi
 
 if [ -d "$VITPOSE_DIR" ] && { [ -f "${VITPOSE_DIR}/setup.py" ] || [ -f "${VITPOSE_DIR}/setup.cfg" ]; }; then
-    pip install -q -v -e "$VITPOSE_DIR"
+    pip_install -q -v -e "$VITPOSE_DIR"
     info "ViTPose installed."
 else
     warn "ViTPose directory not found at ${VITPOSE_DIR}."
     warn "You may need to install it manually:"
-    warn "  pip install -v -e ${HAMER_DIR}/third-party/ViTPose"
+    warn "  ${PYTHON} -m pip install -v -e ${HAMER_DIR}/third-party/ViTPose"
 fi
 
 # ---------------------------------------------------------------------------

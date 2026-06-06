@@ -310,10 +310,26 @@ class AnyHandPredictor:
                     f"HaMeR model config not found at {hamer_cfg_p}. "
                     "Run:  bash scripts/prepare_hamer.sh")
 
-        from omegaconf import OmegaConf
+        from omegaconf import OmegaConf, open_dict
         from hamer.models.hamer import HAMER
 
         model_cfg = OmegaConf.load(str(hamer_cfg_p))
+
+        # Training config embeds cluster-local paths (backbone init weights,
+        # MANO dirs). For inference the checkpoint already contains trained
+        # weights — mirror hamer.models.load_hamer() / wilor load_wilor().
+        with open_dict(model_cfg):
+            backbone = model_cfg.MODEL.BACKBONE
+            if backbone.get('PRETRAINED_WEIGHTS'):
+                del backbone['PRETRAINED_WEIGHTS']
+            if backbone.TYPE == 'vit' and 'BBOX_SHAPE' not in model_cfg.MODEL:
+                assert model_cfg.MODEL.IMAGE_SIZE == 256
+                model_cfg.MODEL.BBOX_SHAPE = [192, 256]
+            mano_dir = str(_REPO_ROOT / 'mano_data')
+            model_cfg.MANO.DATA_DIR = mano_dir
+            model_cfg.MANO.MODEL_PATH = mano_dir
+            model_cfg.MANO.MEAN_PARAMS = str(Path(mano_dir) / 'mano_mean_params.npz')
+
         model = HAMER.load_from_checkpoint(
             self._hamer_ckpt,
             strict=False,

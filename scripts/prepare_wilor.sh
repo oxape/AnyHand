@@ -20,6 +20,33 @@ require_cmd() {
     command -v "$1" >/dev/null 2>&1 || die "'$1' not found. Please install it first."
 }
 
+# Prefer repo .venv so the script works without manual activation.
+if [ -n "${PYTHON:-}" ]; then
+    :
+elif [ -x "${REPO_ROOT}/.venv/bin/python" ]; then
+    PYTHON="${REPO_ROOT}/.venv/bin/python"
+elif command -v python3 >/dev/null 2>&1; then
+    PYTHON="python3"
+elif command -v python >/dev/null 2>&1; then
+    PYTHON="python"
+else
+    die "Python not found. Create a venv first: python3 -m venv .venv"
+fi
+
+ensure_pip() {
+    if "$PYTHON" -m pip --version >/dev/null 2>&1; then
+        return 0
+    fi
+    info "pip not found for ${PYTHON}; bootstrapping with ensurepip..."
+    "$PYTHON" -m ensurepip --upgrade || \
+        die "pip is not available. Install it with: ${PYTHON} -m ensurepip --upgrade"
+}
+
+pip_install() {
+    ensure_pip
+    "$PYTHON" -m pip install "$@"
+}
+
 download() {
     local url="$1" dest="$2"
     if [ -f "$dest" ]; then
@@ -40,7 +67,7 @@ download() {
 # Check prerequisites
 # ---------------------------------------------------------------------------
 require_cmd git
-require_cmd python
+info "Using Python: ${PYTHON}"
 
 # ---------------------------------------------------------------------------
 # 1. Initialise WiLoR submodule
@@ -68,7 +95,7 @@ fi
 # ---------------------------------------------------------------------------
 info "=== [2/4] Installing WiLoR Required Dependencies ==="
 
-pip install -q -r WiLoR/requirements.txt
+pip_install -q -r WiLoR/requirements.txt
 info "WiLoR dependencies installed."
 
 
