@@ -334,6 +334,7 @@ class AnyHandPredictor:
             self._hamer_ckpt,
             strict=False,
             cfg=model_cfg,
+            weights_only=False,  # checkpoint hparams contain OmegaConf DictConfig
         )
         model = model.to(self.device)
         model.eval()
