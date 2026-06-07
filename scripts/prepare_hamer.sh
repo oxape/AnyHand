@@ -24,16 +24,19 @@ require_cmd() {
 }
 
 # Prefer repo .venv so the script works without manual activation.
+# Linux/macOS: .venv/bin/python   Windows: .venv/Scripts/python.exe
 if [ -n "${PYTHON:-}" ]; then
     :
 elif [ -x "${REPO_ROOT}/.venv/bin/python" ]; then
     PYTHON="${REPO_ROOT}/.venv/bin/python"
+elif [ -f "${REPO_ROOT}/.venv/Scripts/python.exe" ]; then
+    PYTHON="${REPO_ROOT}/.venv/Scripts/python.exe"
 elif command -v python3 >/dev/null 2>&1; then
     PYTHON="python3"
 elif command -v python >/dev/null 2>&1; then
     PYTHON="python"
 else
-    die "Python not found. Create a venv first: python3 -m venv .venv"
+    die "Python not found. Create a venv first: python -m venv .venv"
 fi
 
 ensure_pip() {
@@ -105,7 +108,7 @@ fi
 info "=== [2/5] Installing HaMeR Python package ==="
 
 if ! "$PYTHON" -c "import torch" >/dev/null 2>&1; then
-    die "PyTorch is not installed. Install it first (see README section 1.2): ${PYTHON} -m pip install \"torch<2.6\" \"torchvision<0.21\" --index-url https://download.pytorch.org/whl/cu118"
+    die "PyTorch is not installed. Install it first (see QUICKSTART.md): ${PYTHON} -m pip install -r requirements-oxape-cu128.txt --index-url https://download.pytorch.org/whl/cu128"
 fi
 
 # Install core hamer package. Skip detectron2 since AnyHand uses WiLoR's YOLO detector.
