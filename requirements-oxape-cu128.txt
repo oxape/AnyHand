@@ -1,0 +1,13 @@
+# oxape/AnyHand fork — PyTorch stack (CUDA 12.8, Python 3.10)
+# Verified in project .venv (2026-06).
+#
+# Install (must pass the cu128 wheel index):
+#   pip install -r requirements-oxape-cu128.txt \
+#     --index-url https://download.pytorch.org/whl/cu128
+#
+# After install, versions report as e.g. torch 2.11.0+cu128.
+# Other dependencies: bash scripts/prepare_hamer.sh and/or prepare_wilor.sh
+
+torch==2.11.0
+torchvision==0.26.0
+torchaudio==2.11.0
