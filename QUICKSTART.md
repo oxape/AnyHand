@@ -8,16 +8,14 @@
 ## 1. 克隆
 
 ```bash
-git clone --recurse-submodules -b semg-rgb-annotation \
-  https://github.com/oxape/AnyHand.git
+git clone --recurse-submodules -b semg-rgb-annotation https://github.com/oxape/AnyHand.git
 cd AnyHand
 ```
 
 SSH：
 
 ```bash
-git clone --recurse-submodules -b semg-rgb-annotation \
-  git@github.com:oxape/AnyHand.git
+git clone --recurse-submodules -b semg-rgb-annotation git@github.com:oxape/AnyHand.git
 cd AnyHand
 ```
 
@@ -67,8 +65,7 @@ python -m pip install -U pip
 | torchaudio | 2.11.0+cu128 |
 
 ```bash
-pip install -r requirements-oxape-cu128.txt \
-  --index-url https://download.pytorch.org/whl/cu128
+pip install -r requirements-oxape-cu128.txt --index-url https://download.pytorch.org/whl/cu128
 ```
 
 验证：
