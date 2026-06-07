@@ -37,20 +37,39 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
     Die "git not found. Install Git for Windows first."
 }
 
+# Native commands (python.exe) may write tracebacks to stderr; with
+# $ErrorActionPreference = "Stop" that becomes a terminating error unless
+# stderr is merged and checked via exit code instead.
+function Invoke-PythonCli {
+    param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Args)
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    $output = & $Python @Args 2>&1
+    $exit = $LASTEXITCODE
+    $ErrorActionPreference = $prev
+    return [PSCustomObject]@{
+        ExitCode = $exit
+        Output   = $output
+    }
+}
+
 function Ensure-Pip {
-    & $Python -m pip --version 2>$null
-    if ($LASTEXITCODE -ne 0) {
+    $check = Invoke-PythonCli -m pip --version
+    if ($check.ExitCode -ne 0) {
         Info "Bootstrapping pip..."
-        & $Python -m ensurepip --upgrade
-        if ($LASTEXITCODE -ne 0) { Die "pip is not available for $Python" }
+        $boot = Invoke-PythonCli -m ensurepip --upgrade
+        if ($boot.ExitCode -ne 0) { Die "pip is not available for $Python" }
     }
 }
 
 function Pip-Install {
     param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Args)
     Ensure-Pip
-    & $Python -m pip install @Args
-    if ($LASTEXITCODE -ne 0) { Die "pip install failed: $Args" }
+    $result = Invoke-PythonCli -m pip install @Args
+    if ($result.ExitCode -ne 0) {
+        if ($result.Output) { Write-Host ($result.Output | Out-String) }
+        Die "pip install failed: $($Args -join ' ')"
+    }
 }
 
 function Download-File {
@@ -92,14 +111,15 @@ if (-not $hasSetup) {
 # --- [2/5] Install HaMeR package ---
 Info "=== [2/5] Installing HaMeR Python package ==="
 
-& $Python -c "import torch" 2>$null
-if ($LASTEXITCODE -ne 0) {
-    Die @"
-PyTorch is not installed. Install first (CUDA 12.8):
-  .\.venv\Scripts\python.exe -m pip install -r requirements-oxape-cu128.txt `
-    --index-url https://download.pytorch.org/whl/cu128
-"@
+$torchCheck = Invoke-PythonCli -c "import torch; print(torch.__version__)"
+if ($torchCheck.ExitCode -ne 0) {
+    if ($torchCheck.Output) {
+        Warn "PyTorch import failed:"
+        Write-Host ($torchCheck.Output | Out-String)
+    }
+    Die "PyTorch is not installed. Run: .\.venv\Scripts\python.exe -m pip install -r requirements-oxape-cu128.txt --index-url https://download.pytorch.org/whl/cu128"
 }
+Info "PyTorch version: $($torchCheck.Output | Select-Object -Last 1)"
 
 Pip-Install -e "$HamerDir" --no-deps
 Pip-Install @(
