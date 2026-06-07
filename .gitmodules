@@ -1,6 +1,6 @@
 [submodule "WiLoR"]
 	path = WiLoR
-	url = git@github.com:oxape/WiLoR.git
+	url = https://github.com/oxape/WiLoR.git
 [submodule "third_party/hamer"]
 	path = third_party/hamer
 	url = https://github.com/geopavlakos/hamer.git
