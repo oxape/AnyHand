@@ -1,6 +1,8 @@
 # AnyHand 快速开始（oxape fork / CUDA 12.8）
 
-面向本仓库 `semg-rgb-annotation` 分支：HaMeR 手部姿态 + sEMG 标注实验脚本。  
+面向本仓库 `semg-rgb-annotation` 分支：作为 **semg-rgbd** 项目的 vendored 手部姿态后端（HaMeR / 未来 AnyHand-Net-D）。  
+多模态采集与标注架构见兄弟仓库 [**semg-rgbd**](../semg-rgbd/docs/ARCHITECTURE.md)（sEMG + RGB-D）。
+
 上游 README 仍写 cu118 / `torch<2.6`；**本 fork 实际使用 cu128 + PyTorch 2.11**（`rgb_predictor.py` 已处理 `weights_only` 兼容性）。
 
 ---
