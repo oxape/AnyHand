@@ -77,22 +77,47 @@ python -c "import torch; print(torch.__version__, torch.cuda.is_available())"
 # 期望: 2.11.0+cu128 True
 ```
 
-其余 Python 依赖由 `prepare_hamer.sh` / `prepare_wilor.sh` 安装（含 submodule 可编辑包）。
+其余 Python 依赖由下面的 prepare 脚本安装（含 submodule 可编辑包）。
 
 ---
 
-## 4. 准备 HaMeR（推荐本分支主路径）
+## 4. 准备 WiLoR 检测器（必需）
 
-**Linux / macOS / Git Bash（已识别 Windows 版 `.venv`）：**
+即使只用 **HaMeR 后端**，`AnyHandPredictor` 也会先加载 WiLoR 的 YOLO 手部检测器（`ultralytics` + `pretrained_models/detector.pt`）。因此 **`prepare_wilor` 不是可选项**，需在 HaMeR 推理前完成。
+
+**Linux / macOS / Git Bash：**
+
+```bash
+bash scripts/prepare_wilor.sh
+```
+
+**Windows PowerShell：**
+
+```powershell
+.\scripts\prepare_wilor.ps1
+```
+
+脚本会：
+
+- 初始化 `WiLoR/` submodule
+- 安装 `WiLoR/requirements.txt`（含 `ultralytics`）
+- 下载 `pretrained_models/detector.pt`
+
+若还需 **WiLoR 重建后端** 或 mesh 渲染，同一脚本也会下载 `anyhand_wilor.ckpt` 与 `model_config_wilor.yaml`。
+
+---
+
+## 5. 准备 HaMeR
+
+**Linux / macOS / Git Bash：**
 
 ```bash
 bash scripts/prepare_hamer.sh
 ```
 
-**Windows PowerShell（推荐原生 Windows 环境）：**
+**Windows PowerShell：**
 
 ```powershell
-# 在仓库根目录；先激活 venv 或确保 .venv\Scripts\python.exe 存在
 .\scripts\prepare_hamer.ps1
 ```
 
@@ -102,7 +127,8 @@ bash scripts/prepare_hamer.sh
 
 - 初始化 `third_party/hamer` 及嵌套 ViTPose
 - `pip install -e third_party/hamer` 与 ViTPose
-- 从 HuggingFace 下载 `anyhand_hamer.ckpt`、`detector.pt` 等
+- 从 HuggingFace 下载 `anyhand_hamer.ckpt`、`model_config.yaml`
+- 下载 `mano_data/mano_mean_params.npz`（若曾在旧路径 `pretrained_models/hamer_ckpts/data/` 下载过，脚本会自动迁移）
 
 ### MANO（手动，许可证限制）
 
@@ -112,17 +138,7 @@ bash scripts/prepare_hamer.sh
 mano_data/
 ├── MANO_RIGHT.pkl
 ├── MANO_LEFT.pkl
-└── mano_mean_params.npz   # prepare_hamer.sh 也会尝试下载
-```
-
----
-
-## 5. （可选）WiLoR
-
-若需要 WiLoR 后端或 mesh 渲染：
-
-```bash
-bash scripts/prepare_wilor.sh
+└── mano_mean_params.npz   # prepare_hamer 也会尝试下载
 ```
 
 ---
@@ -160,9 +176,9 @@ hands = predictor.predict("photo.jpg")
 ```
 AnyHand/
 ├── .venv/
-├── WiLoR/                      # submodule
-├── third_party/hamer/          # submodule（推理用这个）
-├── pretrained_models/          # prepare 脚本下载（gitignore）
+├── WiLoR/                      # submodule（检测器 + 可选 WiLoR 后端）
+├── third_party/hamer/          # submodule（HaMeR 重建）
+├── pretrained_models/          # detector.pt、checkpoint 等（gitignore）
 ├── mano_data/                  # 手动 + prepare 下载（gitignore）
 ├── scripts/rgb_predictor.py
 ├── semg_annotation/
@@ -204,6 +220,9 @@ git submodule update --init --recursive
 
 **Submodule commit not found**  
 确认 `oxape/WiLoR` 上存在 AnyHand 记录的 commit（见 `git ls-tree HEAD WiLoR`）。
+
+**`No module named 'ultralytics'`**  
+未运行 `prepare_wilor`（或 `.ps1`）。HaMeR 后端同样需要 WiLoR 的 YOLO 检测器，请先完成 §4。
 
 **无 GPU / 无显示器**  
 - CPU：PyTorch 改用 [pytorch.org](https://pytorch.org/get-started/locally/) 的 CPU 命令  

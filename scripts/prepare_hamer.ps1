@@ -41,10 +41,10 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
 # $ErrorActionPreference = "Stop" that becomes a terminating error unless
 # stderr is merged and checked via exit code instead.
 function Invoke-PythonCli {
-    param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Args)
+    param([string[]]$CliArgs)
     $prev = $ErrorActionPreference
     $ErrorActionPreference = "Continue"
-    $output = & $Python @Args 2>&1
+    $output = & $Python @CliArgs 2>&1
     $exit = $LASTEXITCODE
     $ErrorActionPreference = $prev
     return [PSCustomObject]@{
@@ -54,21 +54,21 @@ function Invoke-PythonCli {
 }
 
 function Ensure-Pip {
-    $check = Invoke-PythonCli -m pip --version
+    $check = Invoke-PythonCli -CliArgs @('-m', 'pip', '--version')
     if ($check.ExitCode -ne 0) {
         Info "Bootstrapping pip..."
-        $boot = Invoke-PythonCli -m ensurepip --upgrade
+        $boot = Invoke-PythonCli -CliArgs @('-m', 'ensurepip', '--upgrade')
         if ($boot.ExitCode -ne 0) { Die "pip is not available for $Python" }
     }
 }
 
 function Pip-Install {
-    param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Args)
+    param([string[]]$PipArgs)
     Ensure-Pip
-    $result = Invoke-PythonCli -m pip install @Args
+    $result = Invoke-PythonCli -CliArgs (@('-m', 'pip', 'install') + $PipArgs)
     if ($result.ExitCode -ne 0) {
         if ($result.Output) { Write-Host ($result.Output | Out-String) }
-        Die "pip install failed: $($Args -join ' ')"
+        Die "pip install failed: $($PipArgs -join ' ')"
     }
 }
 
@@ -111,7 +111,7 @@ if (-not $hasSetup) {
 # --- [2/5] Install HaMeR package ---
 Info "=== [2/5] Installing HaMeR Python package ==="
 
-$torchCheck = Invoke-PythonCli -c "import torch; print(torch.__version__)"
+$torchCheck = Invoke-PythonCli -CliArgs @('-c', 'import torch; print(torch.__version__)')
 if ($torchCheck.ExitCode -ne 0) {
     if ($torchCheck.Output) {
         Warn "PyTorch import failed:"
@@ -121,8 +121,8 @@ if ($torchCheck.ExitCode -ne 0) {
 }
 Info "PyTorch version: $($torchCheck.Output | Select-Object -Last 1)"
 
-Pip-Install -e "$HamerDir" --no-deps
-Pip-Install @(
+Pip-Install -PipArgs @('-e', "$HamerDir", '--no-deps')
+Pip-Install -PipArgs @(
     "gdown", "numpy", "opencv-python", "pyrender", "pytorch-lightning", "scikit-image",
     "smplx==0.1.28", "yacs", "timm", "einops", "xtcocotools", "pandas",
     "chumpy @ git+https://github.com/mattloper/chumpy"
@@ -140,7 +140,7 @@ if (-not (Test-Path $VitposeDir)) {
 }
 
 if ((Test-Path (Join-Path $VitposeDir "setup.py")) -or (Test-Path (Join-Path $VitposeDir "setup.cfg"))) {
-    Pip-Install -v -e $VitposeDir
+    Pip-Install -PipArgs @('-v', '-e', $VitposeDir)
     Info "ViTPose installed."
 } else {
     Warn "ViTPose not found at $VitposeDir"
@@ -159,10 +159,25 @@ Download-File "$HfBase/model_config_hamer.yaml"  (Join-Path $CkptDir "model_conf
 # --- [5/5] mano_mean_params ---
 Info "=== [5/5] Downloading HaMeR auxiliary data ==="
 
-$DataDir = Join-Path $RepoRoot "pretrained_models\hamer_ckpts\data"
+$ManoDir = Join-Path $RepoRoot "mano_data"
+$ManoDest = Join-Path $ManoDir "mano_mean_params.npz"
+$LegacyMano = Join-Path $RepoRoot "pretrained_models\hamer_ckpts\data\mano_mean_params.npz"
 $ManoUrl = "https://huggingface.co/spaces/geopavlakos/hamer/resolve/main/_DATA/data/mano_mean_params.npz"
+
+if (-not (Test-Path $ManoDir)) {
+    New-Item -ItemType Directory -Force -Path $ManoDir | Out-Null
+}
+if (-not (Test-Path $ManoDest) -and (Test-Path $LegacyMano)) {
+    Info "Migrating mano_mean_params.npz from legacy path: $LegacyMano"
+    Move-Item -Path $LegacyMano -Destination $ManoDest
+    $legacyDir = Split-Path -Parent $LegacyMano
+    if ((Test-Path $legacyDir) -and -not (Get-ChildItem $legacyDir -ErrorAction SilentlyContinue)) {
+        Remove-Item $legacyDir -Force -ErrorAction SilentlyContinue
+    }
+}
+
 try {
-    Download-File $ManoUrl (Join-Path $DataDir "mano_mean_params.npz")
+    Download-File $ManoUrl $ManoDest
 } catch {
     Warn "Could not download mano_mean_params.npz — fetch manually if needed."
 }
@@ -171,7 +186,8 @@ Write-Host ""
 Write-Host "============================================================"
 Write-Host "  HaMeR setup complete."
 Write-Host ""
-Write-Host "  third_party\hamer\           <- HaMeR submodule"
-Write-Host "  pretrained_models\hamer_ckpts\"
+Write-Host "  third_party\hamer\              <- HaMeR submodule"
+Write-Host "  pretrained_models\hamer_ckpts\  <- checkpoints"
+Write-Host "  mano_data\mano_mean_params.npz   <- auxiliary MANO data"
 Write-Host "  ACTION: place MANO_RIGHT.pkl in mano_data\ (see README)"
 Write-Host "============================================================"

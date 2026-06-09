@@ -50,6 +50,11 @@ from pathlib import Path
 from typing import List, Literal, Optional, Tuple, Union
 from contextlib import contextmanager
 
+# HaMeR/WiLoR renderer modules default PYOPENGL_PLATFORM to 'egl' when unset.
+# EGL is Linux-only; on Windows/macOS use pyrender's default (Pyglet) instead.
+if sys.platform in ("win32", "darwin") and "PYOPENGL_PLATFORM" not in os.environ:
+    os.environ["PYOPENGL_PLATFORM"] = ""
+
 import cv2
 import numpy as np
 import torch
@@ -297,8 +302,14 @@ class AnyHandPredictor:
         try:
             from hamer.models.hamer import HAMER  # noqa: F401
         except ImportError as exc:
+            hint = (
+                "On Windows, do not set PYOPENGL_PLATFORM=egl. "
+                if sys.platform == "win32" and "EGL" in str(exc)
+                else ""
+            )
             raise ImportError(
-                "HaMeR package is not installed. Run:  bash scripts/prepare_hamer.sh"
+                f"Failed to import HaMeR. {hint}"
+                "Run:  bash scripts/prepare_hamer.sh"
             ) from exc
 
         _check_file(self._hamer_ckpt,
@@ -334,6 +345,7 @@ class AnyHandPredictor:
             self._hamer_ckpt,
             strict=False,
             cfg=model_cfg,
+            init_renderer=False,  # inference only; mesh overlay uses WiLoR renderer
             weights_only=False,  # checkpoint hparams contain OmegaConf DictConfig
         )
         model = model.to(self.device)

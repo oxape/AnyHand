@@ -172,11 +172,19 @@ fi
 # ---------------------------------------------------------------------------
 info "=== [5/5] Downloading HaMeR auxiliary data ==="
 
-HAMER_DATA_DIR="pretrained_models/hamer_ckpts/data"
-mkdir -p "$HAMER_DATA_DIR"
+MANO_DATA_DIR="mano_data"
+MANO_DEST="${MANO_DATA_DIR}/mano_mean_params.npz"
+LEGACY_MANO="pretrained_models/hamer_ckpts/data/mano_mean_params.npz"
+mkdir -p "$MANO_DATA_DIR"
+
+if [ ! -f "$MANO_DEST" ] && [ -f "$LEGACY_MANO" ]; then
+    info "Migrating mano_mean_params.npz from legacy path: ${LEGACY_MANO}"
+    mv "$LEGACY_MANO" "$MANO_DEST"
+    rmdir "pretrained_models/hamer_ckpts/data" 2>/dev/null || true
+fi
 
 HAMER_HF="https://huggingface.co/spaces/geopavlakos/hamer/resolve/main"
-download "${HAMER_HF}/_DATA/data/mano_mean_params.npz" "${HAMER_DATA_DIR}/mano_mean_params.npz" || \
+download "${HAMER_HF}/_DATA/data/mano_mean_params.npz" "$MANO_DEST" || \
     warn "Could not download mano_mean_params.npz — you may need to fetch it manually."
 
 # ---------------------------------------------------------------------------
@@ -189,11 +197,12 @@ echo ""
 echo "  third_party/hamer/           ← HaMeR submodule"
 echo "  pretrained_models/"
 echo "  └── hamer_ckpts/"
-echo "      ├── checkpoints/"
-echo "      │   ├── anyhand_hamer.ckpt    ← AnyHand fine-tuned HaMeR"
-echo "      │   └── model_config.yaml     ← matching config"
-echo "      └── data/"
-echo "          └── mano_mean_params.npz"
+echo "      └── checkpoints/"
+echo "          ├── anyhand_hamer.ckpt    ← AnyHand fine-tuned HaMeR"
+echo "          └── model_config.yaml     ← matching config"
+echo ""
+echo "  mano_data/"
+echo "  └── mano_mean_params.npz          ← auxiliary MANO data"
 echo ""
 echo "  ACTION REQUIRED (if not already done for WiLoR):"
 echo "  Place MANO_RIGHT.pkl at:  mano_data/MANO_RIGHT.pkl"
