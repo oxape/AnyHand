@@ -33,7 +33,7 @@ elif command -v python3 >/dev/null 2>&1; then
 elif command -v python >/dev/null 2>&1; then
     PYTHON="python"
 else
-    die "Python not found. Create a venv first: python -m venv .venv"
+    die "Python not found. Create a venv first: uv venv --python 3.10  (or: python -m venv .venv)"
 fi
 
 ensure_pip() {
@@ -98,7 +98,19 @@ fi
 # ---------------------------------------------------------------------------
 info "=== [2/4] Installing WiLoR Required Dependencies ==="
 
-pip_install -q -r WiLoR/requirements.txt
+# chumpy's setup.py imports pip at build time; PEP 517 build isolation omits pip
+# and fails on modern pip (common on Windows).
+if ! "$PYTHON" -c "import chumpy" >/dev/null 2>&1; then
+    info "Installing chumpy (--no-build-isolation)..."
+    pip_install -q --no-build-isolation 'chumpy @ git+https://github.com/mattloper/chumpy'
+else
+    info "chumpy already installed, skipping."
+fi
+
+REQ_FILTERED="$(mktemp)"
+grep -viE '^\s*chumpy(\s|@)' WiLoR/requirements.txt > "$REQ_FILTERED"
+pip_install -q -r "$REQ_FILTERED"
+rm -f "$REQ_FILTERED"
 info "WiLoR dependencies installed."
 
 

@@ -36,7 +36,7 @@ elif command -v python3 >/dev/null 2>&1; then
 elif command -v python >/dev/null 2>&1; then
     PYTHON="python"
 else
-    die "Python not found. Create a venv first: python -m venv .venv"
+    die "Python not found. Create a venv first: uv venv --python 3.10  (or: python -m venv .venv)"
 fi
 
 ensure_pip() {

@@ -28,7 +28,7 @@ if (-not $Python) {
     $Python = (Get-Command python -ErrorAction SilentlyContinue).Source
 }
 if (-not $Python) {
-    Die "Python not found. Create a venv first:  python -m venv .venv"
+    Die "Python not found. Create a venv first:  uv venv --python 3.10  (or: python -m venv .venv)"
 }
 Info "Using Python: $Python"
 
@@ -61,11 +61,36 @@ function Ensure-Pip {
 function Pip-Install {
     param([string[]]$PipArgs)
     Ensure-Pip
-    $result = Invoke-PythonCli -CliArgs (@('-m', 'pip', 'install') + $PipArgs)
+    $installArgs = @('-m', 'pip', 'install') + $PipArgs
+    $result = Invoke-PythonCli $installArgs
     if ($result.ExitCode -ne 0) {
         if ($result.Output) { Write-Host ($result.Output | Out-String) }
         Die "pip install failed: $($PipArgs -join ' ')"
     }
+}
+
+function Install-ChumpyIfNeeded {
+    $check = Invoke-PythonCli @('-c', 'import chumpy')
+    if ($check.ExitCode -eq 0) {
+        Info "chumpy already installed, skipping."
+        return
+    }
+    # chumpy's setup.py imports pip at build time; PEP 517 build isolation omits
+    # pip and fails on modern pip (notably on Windows).
+    Info "Installing chumpy (--no-build-isolation)..."
+    Pip-Install @(
+        '--no-build-isolation',
+        'chumpy @ git+https://github.com/mattloper/chumpy'
+    )
+}
+
+function New-RequirementsWithoutChumpy {
+    param([string]$SourcePath)
+    $filtered = Join-Path $env:TEMP ("wilor-requirements-no-chumpy-{0}.txt" -f [guid]::NewGuid().ToString('N'))
+    Get-Content $SourcePath |
+        Where-Object { $_ -notmatch '^\s*chumpy(\s|@)' } |
+        Set-Content -Path $filtered -Encoding utf8
+    return $filtered
 }
 
 function Download-File {
@@ -105,7 +130,13 @@ if (-not (Test-Path $reqFile)) {
 # --- [2/4] WiLoR dependencies (includes ultralytics) ---
 Info "=== [2/4] Installing WiLoR dependencies ==="
 
-Pip-Install -PipArgs @('-r', $reqFile)
+Install-ChumpyIfNeeded
+$reqFiltered = New-RequirementsWithoutChumpy -SourcePath $reqFile
+try {
+    Pip-Install @('-r', $reqFiltered)
+} finally {
+    Remove-Item -Path $reqFiltered -Force -ErrorAction SilentlyContinue
+}
 Info "WiLoR dependencies installed."
 
 # --- [3/4] YOLO hand detector ---

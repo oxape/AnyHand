@@ -33,6 +33,8 @@
 
 This repository releases **fine-tuned checkpoints of [HaMeR](https://arxiv.org/abs/2312.05251) and [WiLoR](https://arxiv.org/abs/2409.12259) co-trained with AnyHand**, which achieve consistent improvements on standard benchmarks (FreiHAND, HO-3D) and better generalization to out-of-domain scenes. More components are coming — see the roadmap below.
 
+> **Oxape fork / semg-rgbd vendored copy:** use **[QUICKSTART.md](QUICKSTART.md)** instead of §1.2 below — Python 3.10 via `uv venv`, CUDA 12.8 / PyTorch 2.11, Windows `prepare_*.ps1` scripts, and documented fixes for `chumpy` / PowerShell on Windows.
+
 ---
 
 ## 🗺️ Roadmap
@@ -79,37 +81,26 @@ This populates WiLoR/ (WiLoR codebase) and third_party/hamer/ (HaMeR codebase).
 
 ### 1.2 Install Dependencies
 
+**Oxape fork / Windows / semg-rgbd:** follow **[QUICKSTART.md](QUICKSTART.md)** (`uv venv --python 3.10`, PyTorch cu128, `prepare_wilor.ps1` then `prepare_hamer.ps1`).
+
+**Upstream quick path (conda, cu118):**
+
 ```bash
 conda create -n anyhand python=3.10 -y
 conda activate anyhand
-```
-
-Install PyTorch (adjust CUDA version — see [pytorch.org](https://pytorch.org/get-started/locally/)):
-
-```bash
 pip install "torch<2.6" "torchvision<0.21" --index-url https://download.pytorch.org/whl/cu118
 ```
 
-> **Note:** The default checkpoint-loading logic in WiLoR and HaMeR relies on PyTorch's pre-2.6 `weight_only=True` behavior, so we pin `torch<2.6` for convenience. If you want to use a newer PyTorch, you can work around it on the application side (e.g. by patching the relevant `torch.load` calls).
+> **Note:** Upstream pins `torch<2.6` because original WiLoR/HaMeR `torch.load` defaults differ on PyTorch 2.6+. The oxape fork patches `rgb_predictor.py` for PyTorch 2.11 + cu128 — see QUICKSTART.md.
 
-Then run the preparation scripts for whichever backend(s) you need:
-**WiLoR only** (recommended for most users):
-```
-bash scripts/prepare_wilor.sh
-```
+Then run the preparation scripts ( **`prepare_wilor` is required even for HaMeR-only** — shared YOLO detector):
 
-**HaMeR only**:
-```
-bash scripts/prepare_hamer.sh
-```
+| Goal | Linux / macOS | Windows PowerShell |
+|------|---------------|-------------------|
+| Detector + optional WiLoR backend | `bash scripts/prepare_wilor.sh` | `.\scripts\prepare_wilor.ps1` |
+| HaMeR backend | `bash scripts/prepare_hamer.sh` | `.\scripts\prepare_hamer.ps1` |
 
-**Both**:
-```
-bash scripts/prepare_wilor.sh
-bash scripts/prepare_hamer.sh
-```
-Each script installs the corresponding Python package, downloads the
-AnyHand checkpoint, and prints a checklist of remaining manual steps.
+Each script installs dependencies, downloads checkpoints, and prints remaining manual steps (MANO, etc.).
 
 ### 1.3 Set Up MANO
 

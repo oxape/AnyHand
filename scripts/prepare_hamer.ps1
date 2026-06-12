@@ -29,7 +29,7 @@ if (-not $Python) {
     $Python = (Get-Command python -ErrorAction SilentlyContinue).Source
 }
 if (-not $Python) {
-    Die "Python not found. Create a venv first:  python -m venv .venv"
+    Die "Python not found. Create a venv first:  uv venv --python 3.10  (or: python -m venv .venv)"
 }
 Info "Using Python: $Python"
 
