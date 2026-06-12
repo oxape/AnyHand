@@ -115,8 +115,16 @@ fi
 HAMER_CORE_DEPS=(
     gdown numpy opencv-python pyrender pytorch-lightning scikit-image
     'smplx==0.1.28' yacs timm einops xtcocotools pandas
-    'chumpy @ git+https://github.com/mattloper/chumpy'
 )
+
+# chumpy's setup.py imports pip at build time; PEP 517 build isolation omits pip
+# and fails on modern pip (common on Windows).
+if ! "$PYTHON" -c "import chumpy" >/dev/null 2>&1; then
+    info "Installing chumpy (--no-build-isolation)..."
+    pip_install -q --no-build-isolation 'chumpy @ git+https://github.com/mattloper/chumpy'
+else
+    info "chumpy already installed, skipping."
+fi
 
 pip_install -q -e "${HAMER_DIR}/" --no-deps
 pip_install -q "${HAMER_CORE_DEPS[@]}"

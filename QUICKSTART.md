@@ -206,7 +206,7 @@ git submodule update --init --recursive
 | PyTorch cu128 | 支持（NVIDIA 驱动 + CUDA 12.x） |
 | HaMeR 推理 | 一般可行；需装好 PyTorch、MANO、checkpoint |
 | ViTPose (`pip install -e`) | 可能较慢；部分环境需 [mmcv](https://github.com/open-mmlab/mmcv) 预编译 wheel |
-| `chumpy`（git 依赖） | 偶发编译问题；可尝试先装 `pip install Cython` |
+| `chumpy`（git 依赖） | `prepare_hamer` 已用 `--no-build-isolation` 自动处理；旧版 pip 隔离构建会报 `No module named 'pip'` |
 | `pyrender` / 无头渲染 | 服务器无显示器时需配置 EGL/OSMesa；桌面 Windows 通常可直接用 |
 
 **更省事的选择**：在 **WSL2** 里按 Linux 流程走（与当前 `.venv` 的 `bin/python` 布局一致）。
@@ -214,6 +214,13 @@ git submodule update --init --recursive
 ---
 
 ## 10. 常见问题
+
+**`chumpy` 安装报 `No module named 'pip'`**  
+现代 pip 的 PEP 517 构建隔离与 chumpy 老旧 `setup.py` 不兼容。请用最新 `prepare_hamer.ps1` / `prepare_hamer.sh`（会自动 `--no-build-isolation`），或手动：  
+`pip install --no-build-isolation "chumpy @ git+https://github.com/mattloper/chumpy"`
+
+**`prepare_hamer.ps1` 报 `parameter name 'e' is ambiguous`**  
+请拉取已修复脚本（pip 参数改为数组传递，避免 PowerShell 把 `-e` 当成 `-ErrorAction`）。
 
 **`torch.load` / `weights_only` 报错**  
 本 fork 的 `rgb_predictor.py` 已对 HaMeR checkpoint 传入 `weights_only=False`。请使用本仓库代码，不要混用上游未修补版本。
